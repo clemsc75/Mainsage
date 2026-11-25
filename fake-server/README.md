@@ -4,10 +4,14 @@ Se comporte comme le vrai backend : mêmes routes, mêmes messages WebSocket. Le
 
 ```bash
 cd fake-server
+python3 -m venv .venv
+source .venv/bin/activate          # Windows : .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload      # http://localhost:8000/docs (OpenAPI)
-pytest
+uvicorn app.main:app --reload      # serveur sur http://localhost:8000
+pytest                             # tests
 ```
+
+Documentation OpenAPI : http://localhost:8000/docs (interface Swagger), http://localhost:8000/redoc, schéma brut : http://localhost:8000/openapi.json.
 
 ## Contrat
 
