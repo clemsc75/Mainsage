@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mainsage - test horodatage WebRTC</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+  video { height: 70vh; background: #000; }
+  pre { background: #f4f4f4; padding: .75rem; min-width: 26rem; }
+  label { display: block; margin-bottom: .5rem; }
+  .ok { color: #0a7a2f; } .ko { color: #b00020; }
+</style>
+</head>
+<body>
+<div>
+  <label>URL WHEP MediaMTX
+    <input id="whep" size="45" value="http://localhost:8889/test/whep"></label>
+  <label>Images par seconde de la source <input id="fps" type="number" value="25" size="4"></label>
+  <button id="go">Lire</button>
+  <video id="v" autoplay muted playsinline></video>
+</div>
+<div>
+  <pre id="out">En attente…</pre>
+  <p>Lecture : <b>décalage = n/fps − rtpTimestamp/90000</b> doit rester constant. Sa variation (écart-type, max)
+  dit si l'horodatage RTP est un bon repère de l'image affichée. Critère : étendue &lt; 300 ms.</p>
+</div>
+<canvas id="c" width="540" height="960" hidden></canvas>
+<script>
+const v = document.getElementById('v');
+const out = document.getElementById('out');
+const ctx = document.getElementById('c').getContext('2d', { willReadFrequently: true });
+let startMs = null, samples = [], lastN = null, wraps = 0, first = null;
+
+// Lit le numéro d'image encodé en binaire dans les 16 carrés du haut de l'image.
+function readFrameNumber() {
+  ctx.drawImage(v, 0, 0, 540, 960);
+  const row = ctx.getImageData(0, 8, 256, 1).data;
+  let n = 0;
+  for (let b = 0; b < 16; b++) if (row[(b * 16 + 8) * 4] > 128) n |= (1 << b);
+  return n;
+}
+
+function stats(a) {
+  const m = a.reduce((s, x) => s + x, 0) / a.length;
+  const sd = Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / a.length);
+  return { m, sd, min: Math.min(...a), max: Math.max(...a) };
+}
+
+function onFrame(now, meta) {
+  const fps = +document.getElementById('fps').value;
+  let n = readFrameNumber();
+  if (lastN !== null && n < lastN - 30000) wraps++;   // le compteur 16 bits repart de 0
+  lastN = n;
+  const nAbs = n + wraps * 65536;
+  const rtp = meta.rtpTimestamp;           // undefined sur les navigateurs sans ce champ
+  if (rtp !== undefined) {
+    if (first === null) first = { rtp, n: nAbs };
+    const dRtp = ((rtp - first.rtp) >>> 0) / 90000;
+    const offset = (nAbs - first.n) / fps - dRtp;     // doit rester ~0
+    samples.push({ offset: offset * 1000, nAbs, now,
+      lat: startMs ? Date.now() - (startMs + nAbs / fps * 1000) : null,
+      cap: meta.captureTime !== undefined ? meta.captureTime : null });
+    if (samples.length > 600) samples.shift();
+  }
+  render(meta, rtp);
+  v.requestVideoFrameCallback(onFrame);
+}
+
+function render(meta, rtp) {
+  const o = [];
+  o.push('rtpTimestamp          : ' + (rtp === undefined ? 'NON FOURNI par ce navigateur' : rtp));
+  o.push('captureTime           : ' + (meta.captureTime === undefined ? 'absent' : meta.captureTime.toFixed(1)));
+  o.push('receiveTime           : ' + (meta.receiveTime === undefined ? 'absent' : meta.receiveTime.toFixed(1)));
+  o.push('images lues           : ' + samples.length);
+  if (samples.length > 30) {
+    const s = stats(samples.map(x => x.offset));
+    const range = s.max - s.min;
+    o.push('');
+    o.push(`écart n/fps − RTP (ms) : moy ${s.m.toFixed(1)}  σ ${s.sd.toFixed(1)}  étendue ${range.toFixed(1)}`);
+    const lats = samples.filter(x => x.lat !== null).map(x => x.lat);
+    if (lats.length) {
+      const l = stats(lats);
+      o.push(`latence vidéo (ms)    : moy ${l.m.toFixed(0)}  min ${l.min.toFixed(0)}  max ${l.max.toFixed(0)}`);
+      o.push('  (valable si publish.sh et le navigateur sont sur la même machine)');
+    }
+    o.push('');
+    o.push(range < 300 ? 'VERDICT : horodatage exploitable (étendue < 300 ms)' : 'VERDICT : trop instable, prévoir le plan B');
+  }
+  out.textContent = o.join('\n');
+  out.className = '';
+}
+
+async function play() {
+  samples = []; lastN = null; wraps = 0; first = null;
+  try { startMs = +(await (await fetch('start.txt', { cache: 'no-store' })).text()) || null; } catch { startMs = null; }
+  const pc = new RTCPeerConnection();
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.ontrack = e => { v.srcObject = e.streams[0]; };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await new Promise(r => { if (pc.iceGatheringState === 'complete') r(); else pc.onicegatheringstatechange = () => pc.iceGatheringState === 'complete' && r(); });
+  const res = await fetch(document.getElementById('whep').value, {
+    method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: pc.localDescription.sdp });
+  await pc.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+  if (!('requestVideoFrameCallback' in v)) { out.textContent = 'requestVideoFrameCallback indisponible'; return; }
+  v.requestVideoFrameCallback(onFrame);
+}
+document.getElementById('go').onclick = () => play().catch(e => { out.textContent = 'Erreur : ' + e; });
+</script>
+</body>
+</html>
