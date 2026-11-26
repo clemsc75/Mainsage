@@ -68,6 +68,11 @@ test_mot_de_passe_jamais_repete_dans_les_messages() {
     ne_contient "$SORTIE" "$MDP"
 }
 
+test_assainir_garde_les_accents_et_retire_les_controles() {
+    reussit 'wh_assainir "$1"' $'règles modifiées \e[31m\a\n\xc2\x9b fin'
+    contient "$SORTIE" "règles modifiées ?[31m??? fin"
+}
+
 test_cidr() {
     reussit 'wh_valider_cidr 192.168.1.0/24'
     reussit 'wh_valider_cidr 10.0.0.1/32'

@@ -85,10 +85,12 @@ wh_fatal() { # <code> <message>
     exit "$code"
 }
 
-# Rend une valeur non fiable affichable sans caractère de contrôle.
+# Rend une valeur non fiable affichable : les caractères de contrôle sont
+# remplacés (y compris C1 en UTF-8), les accents sont conservés.
 wh_assainir() {
-    local LC_ALL=C v=${1//[^ -~]/?}
-    printf '%s' "${v:0:80}"
+    local LC_ALL=C v=${1:0:200}
+    v=${v//$'\xc2'[$'\x80'-$'\x9f']/?}
+    printf '%s' "${v//[$'\x01'-$'\x1f'$'\x7f']/?}"
 }
 
 # ----------------------------------------------------------------- validation
