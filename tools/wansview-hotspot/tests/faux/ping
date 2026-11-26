@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Faux ping : aucune trame émise.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser ping "$@"
+en_echec ping && exit 1
+exit 0

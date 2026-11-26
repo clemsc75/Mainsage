@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Faux iw : lecture seule uniquement.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser iw "$@"
+
+info() { # <iface>
+    local d="$F/dev/$1" canal
+    echo "Interface $1"
+    echo "	ifindex 3"
+    echo "	type $(lire "$d/iwtype")"
+    canal=$(lire "$d/channel")
+    [[ -n $canal ]] && echo "	channel $canal ($((2407 + canal * 5)) MHz), width: 20 MHz"
+    return 0
+}
+
+case "$*" in
+    dev)
+        for d in "$F"/dev/*; do
+            [[ $(lire "$d/type") == wifi ]] && info "$(basename "$d")"
+        done
+        ;;
+    "dev "*" info")
+        en_echec iw && exit 1
+        [[ $(lire "$F/dev/$2/type") == wifi ]] || exit 237
+        info "$2"
+        ;;
+    "dev "*" station dump") lire "$F/stations" ;;
+    "phy "*" info") cat "$F/phy/$2" ;;
+    *) non_simule "iw $*" ;;
+esac
+exit 0

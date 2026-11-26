@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Faux systemctl : état des services lancés par le faux systemd-run.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser systemctl "$@"
+
+action=${1:-}
+shift
+[[ ${1:-} == --quiet ]] && shift
+unite=${1%.service}
+
+case $action in
+    is-active) [[ -e $F/unit/$unite.actif ]] || exit 3 ;;
+    stop)
+        en_echec arret_service && exit 1
+        pid=$(lire "$F/unit/$unite.pid")
+        [[ -n $pid ]] && kill -TERM "$pid" 2>/dev/null
+        for ((i = 0; i < 200; i++)); do
+            [[ -e $F/unit/$unite.actif ]] || exit 0
+            sleep 0.05
+        done
+        exit 1
+        ;;
+    reset-failed) ;;
+    *) non_simule "systemctl $action $unite" ;;
+esac
+exit 0

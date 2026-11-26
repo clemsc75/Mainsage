@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Faux sudo : n'élève aucun droit, exécute la fausse commande demandée.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser sudo "$@"
+
+en_echec sudo && { echo "sudo: a password is required" >&2; exit 1; }
+[[ ${1:-} == -- ]] && shift
+[[ ${1:-} != -* && -n ${1:-} ]] || non_simule "sudo $*"
+# Un chemin absolu hors du bac à sable désignerait une vraie commande.
+if [[ $1 == */* && $1 != "$WH_BAC"/* ]]; then
+    non_simule "sudo $*"
+fi
+exec "$@"

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Faux install : copie dans le bac à sable sans changer de propriétaire.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser install "$@"
+
+repertoire=0
+mode=0755
+while [[ ${1:-} == -* ]]; do
+    case $1 in
+        -d) repertoire=1; shift ;;
+        -o | -g) shift 2 ;;
+        -m) mode=$2; shift 2 ;;
+        --) shift; break ;;
+        *) non_simule "install $*" ;;
+    esac
+done
+destination=${*: -1}
+[[ $destination == "$WH_BAC"/* ]] || non_simule "install hors bac : $destination"
+
+if [[ $repertoire -eq 1 ]]; then
+    for dossier in "$@"; do
+        mkdir -p "$dossier" && chmod "$mode" "$dossier"
+    done
+else
+    [[ $# -eq 2 ]] || non_simule "install $*"
+    rm -f "$2"
+    cp "$1" "$2" && chmod "$mode" "$2"
+    en_echec copie_alteree && echo "# alteration" >>"$2"
+fi
+exit 0
