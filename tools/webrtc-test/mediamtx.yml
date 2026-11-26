@@ -1,0 +1,8 @@
+# Configuration minimale pour le banc d'essai : WebRTC (WHEP) sur le port 8889.
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: '*'
+rtsp: yes
+rtspAddress: :8554
+paths:
+  test:
