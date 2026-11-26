@@ -3,7 +3,7 @@
 # Chaque fonction affiche la raison d'un refus et renvoie un code non nul.
 
 WH_DEPENDANCES=(nmcli iw ip nft flock dnsmasq sudo systemd-run systemctl
-    sha256sum install setsid date mktemp)
+    sha256sum install date mktemp find awk sort grep)
 
 wh_verifier_dependances() {
     local commande manquantes=()
@@ -72,12 +72,14 @@ wh_iface_route_internet() {
 
 # wh_choisir_ethernet [interface demandée] : affiche l'interface retenue.
 wh_choisir_ethernet() {
-    local demande=$1 route info choisie
+    local demande=$1 route info choisie liste
     if [[ -n $demande ]] && ! wh_valider_iface "$demande"; then
         wh_erreur "Nom d'interface Ethernet invalide."
         return "$WH_E_USAGE"
     fi
-    if [[ -z $demande ]] && ! wh_peripheriques | grep -q ':ethernet:connected$'; then
+    liste=$(wh_peripheriques) || return "$WH_E_PREREQUIS"
+    # Pas de « | grep -q » : sous pipefail, il ferait échouer la commande amont.
+    if [[ -z $demande && $liste$'\n' != *:ethernet:connected$'\n'* ]]; then
         wh_erreur "Aucune connexion Ethernet active. Branchez le câble réseau."
         return "$WH_E_PREREQUIS"
     fi

@@ -17,6 +17,11 @@ test_scenario_valide() {
     aucune_modification
 }
 
+test_valide_sous_pipefail() {
+    reussit 'set -o pipefail; wh_choisir_ethernet "" && wh_choisir_wifi "" 6'
+    egal "$IFACE_ETH"$'\n'"$IFACE_WIFI" "$SORTIE"
+}
+
 test_dependance_absente() {
     rm "$BAC/bin/dnsmasq"
     refuse wh_verifier_dependances
