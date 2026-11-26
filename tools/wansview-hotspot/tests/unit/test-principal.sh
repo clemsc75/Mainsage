@@ -39,7 +39,9 @@ attendre_actif() {
 
 # fin_start <code attendu>
 fin_start() {
-    attendre "fin de start : $(journal_start)" termine "$PID_START"
+    # Après un échec d'activation, « start » attend d'abord que le garde
+    # s'arrête (WH_DELAI_ARRET) : environ 10 s au total.
+    ATTENTE_ESSAIS=400 attendre "fin de start : $(journal_start)" termine "$PID_START"
     wait "$PID_START"
     egal "$1" "$?" "code de start :"$'\n'"$(journal_start)"
 }

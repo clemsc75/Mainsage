@@ -234,11 +234,12 @@ refuse() {
     [[ $CODE -ne 127 ]] || echec "commande introuvable : $* $SORTIE"
 }
 
-# attendre <description> <commande...> : réessaie pendant 8 secondes au plus.
+# attendre <description> <commande...> : réessaie pendant 8 secondes au plus
+# (ATTENTE_ESSAIS essais de 50 ms).
 attendre() {
     local quoi=$1 i
     shift
-    for ((i = 0; i < 160; i++)); do
+    for ((i = 0; i < ${ATTENTE_ESSAIS:-160}; i++)); do
         "$@" >/dev/null 2>&1 && return 0
         sleep 0.05
     done
