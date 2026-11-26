@@ -230,6 +230,11 @@ cmd_nettoyer() {
     interfaces=$(iw dev) || wh_fatal "$WH_E_ISOLATION" "État du Wi-Fi inconnu : rien n'est supprimé."
     [[ $interfaces != *$'\ttype AP'* ]] ||
         wh_fatal "$WH_E_ISOLATION" "Un point d'accès est actif : rien n'est supprimé."
+    local profils
+    profils=$(nmcli -t -f UUID,NAME connection show) ||
+        wh_fatal "$WH_E_ISOLATION" "Profils NetworkManager illisibles : rien n'est supprimé."
+    [[ $profils$'\n' != *":$WH_NOM_PROFIL"$'\n'* ]] ||
+        wh_fatal "$WH_E_ISOLATION" "Le profil temporaire existe encore : les règles sont conservées."
     wh_supprimer_table || exit
     supprimer_copies
     wh_info "Aucune table du projet ne subsiste."

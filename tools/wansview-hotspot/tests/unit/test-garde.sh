@@ -280,6 +280,7 @@ test_apres_arret_sans_effet_si_deja_arrete() {
 
 test_nettoyer_supprime_la_table_orpheline() {
     preparer
+    rm -r "${FAUX:?}/conn/$UUID_AP"
     reussit 'wh_poser_regles "$@"' "$IFACE_WIFI" "$IFACE_ETH"
     executer bac_env bash "$GARDE_SCRIPT" nettoyer
     egal 0 "$CODE" "$SORTIE"
@@ -294,6 +295,14 @@ test_nettoyer_refuse_si_un_point_d_acces_est_actif() {
     activer_ap
     executer bac_env bash "$GARDE_SCRIPT" nettoyer
     egal 8 "$CODE"
+    existe "$FAUX/nft/projet"
+}
+
+test_nettoyer_refuse_si_le_profil_temporaire_existe() {
+    preparer
+    reussit 'wh_poser_regles "$@"' "$IFACE_WIFI" "$IFACE_ETH"
+    executer bac_env bash "$GARDE_SCRIPT" nettoyer
+    egal 8 "$CODE" "$SORTIE"
     existe "$FAUX/nft/projet"
 }
 
