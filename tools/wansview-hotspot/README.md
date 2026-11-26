@@ -195,7 +195,8 @@ Un redémarrage efface aussi tout : profil en mémoire, service temporaire, règ
 
 ### Non vérifié en conditions réelles
 
-- La syntaxe et l'effet des règles nftables (étape 2 ci-dessus).
+- L'effet réel des règles nftables (étape 2 ci-dessus). Seule leur syntaxe a été acceptée par l'analyseur de `nft`.
+- Le fait qu'Ubuntu garde le profil `save no` purement en mémoire. Sinon, `start` s'arrête avec le code 7 sans activer le point d'accès.
 - Le durcissement systemd du garde (`CapabilityBoundingSet`, `ProtectSystem`…).
 - La reconnexion d'un client sans nouvelle demande de mot de passe (`psk-flags 2`). Si NetworkManager le redemande, il faudra conserver le secret dans le profil en mémoire.
 
