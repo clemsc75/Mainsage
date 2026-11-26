@@ -23,6 +23,11 @@ case "$*" in
         grep -qw flush <<<"$contenu" && { : >"$F/nft/FLUSH"; exit 1; }
         sed -n '/^table inet wansview_hotspot {/,$p' <<<"$contenu" >"$projet"
         ;;
+    "list ruleset")
+        lire "$F/nft/autres"
+        [[ -f $projet ]] && cat "$projet"
+        exit 0
+        ;;
     "list tables")
         en_echec nft_liste && exit 1
         lire "$F/nft/autres"

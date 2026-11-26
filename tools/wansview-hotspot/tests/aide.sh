@@ -7,7 +7,7 @@ RACINE_OUTIL=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 RACINE_FAUX="$RACINE_OUTIL/tests/faux"
 
 # Commandes qui ne doivent jamais être les vraies pendant un test.
-COMMANDES_SIMULEES=(nmcli ip iw nft sudo systemd-run systemctl ping install dnsmasq nc)
+COMMANDES_SIMULEES=(nmcli ip iw nft sudo systemd-run systemctl ping install dnsmasq nc python3)
 # Outils sans effet sur le réseau, liés un par un dans le bac à sable.
 OUTILS_AUTORISES=(bash env cat mkdir rmdir rm mv cp chmod ln ls sleep date grep sed awk sort
     cmp diff find stat sha256sum mktemp dirname basename readlink head tail cut tr wc flock
