@@ -101,13 +101,23 @@ wh_etat_table() {
     fi
 }
 
+# nftables ajoute « # count N » (éléments présents) après la taille d'un ensemble,
+# même avec -s et -t. Seules ces lignes exactes sont neutralisées : un commentaire
+# de règle ne peut pas servir à masquer une modification.
+wh_sans_compteur_d_elements() {
+    sed -E -e '/^[[:space:]]*# count [0-9]+$/d' \
+        -e 's/^([[:space:]]*size [0-9]+)[[:space:]]+# count [0-9]+$/\1/'
+}
+
 # Empreinte de la table, hors compteurs et hors contenu des ensembles dynamiques,
 # plus le contenu de l'ensemble « interdits ».
 wh_empreinte() {
-    local structure interdits somme
+    local structure interdits contenu somme
     structure=$(nft -s -t list table inet "$WH_TABLE" 2>/dev/null) || return 1
     interdits=$(nft -s list set inet "$WH_TABLE" interdits 2>/dev/null) || return 1
-    somme=$(printf '%s\n%s\n' "$structure" "$interdits" | sha256sum) || return 1
+    contenu=$(printf '%s\n%s\n' "$structure" "$interdits" | wh_sans_compteur_d_elements) &&
+        [[ -n $contenu ]] || return 1
+    somme=$(sha256sum <<<"$contenu") || return 1
     echo "${somme%% *}"
 }
 

@@ -37,11 +37,13 @@ case "$*" in
     "list table inet wansview_hotspot")
         en_echec nft_liste && exit 1
         [[ -f $projet ]] || { echo "Error: No such file or directory" >&2; exit 1; }
+        # Comme nftables 1.1.6 : « size N » suivi du nombre d'éléments présents.
+        compteur=$(lire "$F/nft/compteur")
         if [[ $sans_elements -eq 1 ]]; then
             grep -v 'elements = ' "$projet"
         else
             cat "$projet"
-        fi
+        fi | sed "s/^\([[:space:]]*size [0-9]*\)\$/\1${compteur:+\t# count $compteur}/"
         ;;
     "list set inet wansview_hotspot interdits")
         en_echec nft_liste && exit 1

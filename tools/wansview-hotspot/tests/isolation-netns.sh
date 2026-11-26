@@ -247,11 +247,18 @@ destinations_interdites bloque
 echo "3. Découverte WS-Discovery"
 empreinte_initiale=$(wh_empreinte)
 verdict 0 $? "empreinte lisible"
+liste_initiale=$(nft -s -t list table inet "$WH_TABLE")
 decouverte "la caméra répond à la sonde multicast"
 [[ $(nft list set inet "$WH_TABLE" decouverte_wsd) == *elements* ]]
 verdict 0 $? "le port de la sonde est inscrit dans l'ensemble temporaire"
 [[ $(wh_empreinte) == "$empreinte_initiale" ]]
-verdict 0 $? "l'empreinte ignore l'ensemble dynamique"
+stable=$?
+verdict 0 "$stable" "l'empreinte ignore l'ensemble dynamique"
+if ((stable != 0)); then
+    echo "         Différence de listage après la sonde :"
+    diff <(printf '%s\n' "$liste_initiale") <(nft -s -t list table inet "$WH_TABLE") |
+        sed 's/^/         /'
+fi
 bloque "caméra → autre port UDP du PC après la sonde" camera udp "$WH_IP_AP" 5000
 
 echo "4. Intégrité"

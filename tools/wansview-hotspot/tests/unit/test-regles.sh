@@ -124,11 +124,36 @@ test_empreinte_stable_et_sensible() {
     local reference=$SORTIE
     # Le remplissage de l'ensemble dynamique n'est pas une altération.
     sed -i '/set decouverte_wsd {/a\		elements = { 40000 }' "$FAUX/nft/projet"
+    echo 1 >"$FAUX/nft/compteur"
     reussit wh_empreinte
-    egal "$reference" "$SORTIE"
+    egal "$reference" "$SORTIE" "compteur à la suite de la taille"
+    echo 2 >"$FAUX/nft/compteur"
+    reussit wh_empreinte
+    egal "$reference" "$SORTIE" "compteur modifié"
+    rm "$FAUX/nft/compteur"
+    sed -i '/set decouverte_wsd {/a\		# count 1' "$FAUX/nft/projet"
+    reussit wh_empreinte
+    egal "$reference" "$SORTIE" "compteur seul sur sa ligne"
     sed -i 's/10\.0\.0\.0\/8, //' "$FAUX/nft/projet"
     reussit wh_empreinte
     [[ $SORTIE != "$reference" ]] || echec "un ensemble « interdits » modifié doit changer l'empreinte"
+}
+
+test_empreinte_sensible_a_une_taille_modifiee() {
+    reussit 'wh_poser_regles "$@" && wh_empreinte' "$IFACE_WIFI" "$IFACE_ETH"
+    local reference=$SORTIE
+    sed -i 's/size 64$/size 65535/' "$FAUX/nft/projet"
+    echo 1 >"$FAUX/nft/compteur"
+    reussit wh_empreinte
+    [[ $SORTIE != "$reference" ]] || echec "une taille modifiée doit changer l'empreinte"
+}
+
+test_un_commentaire_ne_masque_pas_une_regle() {
+    reussit 'wh_poser_regles "$@" && wh_empreinte' "$IFACE_WIFI" "$IFACE_ETH"
+    local reference=$SORTIE
+    sed -i '/chain input {/a\		accept comment "# count 1"' "$FAUX/nft/projet"
+    reussit wh_empreinte
+    [[ $SORTIE != "$reference" ]] || echec "une règle commentée doit changer l'empreinte"
 }
 
 test_empreinte_sensible_a_une_regle_ajoutee() {

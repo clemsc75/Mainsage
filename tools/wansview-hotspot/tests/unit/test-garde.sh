@@ -181,6 +181,7 @@ test_arret_si_la_table_est_supprimee() {
 test_remplissage_dynamique_tolere() {
     garde_en_service
     sed -i '/set decouverte_wsd {/a\		elements = { 40000 }' "$FAUX/nft/projet"
+    echo 1 >"$FAUX/nft/compteur"
     sleep 0.6
     egal actif "$(etat statut)"
     kill -0 "$GARDE" || echec "le garde doit rester actif"
