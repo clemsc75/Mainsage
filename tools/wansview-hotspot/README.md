@@ -112,7 +112,7 @@ flowchart TB
 4. Le point d'accès n'est activé qu'après confirmation de l'isolation. Il n'existe pas de mode sans isolation.
 5. Contrôle toutes les 2 s des deux côtés.
 
-Le garde arrête tout si le script principal disparaît, si la table est modifiée, si les réseaux de l'Ethernet changent (câble débranché compris) ou si le point d'accès n'est pas activé dans les 60 s.
+Le garde arrête tout si le script principal disparaît, si la table est modifiée, si les réseaux de l'Ethernet changent (câble débranché compris), si le profil temporaire est supprimé avant l'activation ou si le point d'accès n'est pas activé dans les 60 s.
 
 ## Isolation
 

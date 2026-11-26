@@ -158,6 +158,33 @@ test_arret_si_le_point_d_acces_n_est_jamais_active() {
     arret_complet
 }
 
+test_arret_si_le_profil_est_supprime_avant_activation() {
+    preparer
+    lancer_garde
+    attendre "isolation confirmée" etat_est statut pret
+    rm -r "${FAUX:?}/conn/$UUID_AP"
+    # « attendre » abandonne bien avant le délai d'activation (60 s).
+    fin_garde 0 "profil temporaire supprimé"
+    arret_complet
+}
+
+test_liste_des_profils_illisible_avant_activation() {
+    preparer
+    lancer_garde
+    attendre "isolation confirmée" etat_est statut pret
+    faux_echec liste_profils
+    rm -r "${FAUX:?}/conn/$UUID_AP"
+    : >"$FAUX/appels.log"
+    # Le garde a consulté la liste plusieurs fois sans rien en conclure.
+    attendre "lectures de la liste des profils" \
+        bash -c "(( \$(grep -c '^nmcli .*connection show' '$FAUX/appels.log') >= 3 ))"
+    egal pret "$(etat statut)"
+    egal presente "$(etat table)"
+    kill -0 "$GARDE" || echec "le garde doit rester actif"
+    existe "$FAUX/nft/projet"
+    ne_contient "$(appels)" "nft delete"
+}
+
 test_arret_si_la_table_est_alteree() {
     garde_en_service
     sed -i "/chain input {/a\\		accept" "$FAUX/nft/projet"

@@ -39,9 +39,7 @@ attendre_actif() {
 
 # fin_start <code attendu>
 fin_start() {
-    # Après un échec d'activation, « start » attend d'abord que le garde
-    # s'arrête (WH_DELAI_ARRET) : environ 10 s au total.
-    ATTENTE_ESSAIS=400 attendre "fin de start : $(journal_start)" termine "$PID_START"
+    attendre "fin de start : $(journal_start)" termine "$PID_START"
     wait "$PID_START"
     egal "$1" "$?" "code de start :"$'\n'"$(journal_start)"
 }
@@ -358,14 +356,20 @@ test_creation_du_profil_impossible() {
     echec_au_demarrage 6
 }
 
+# Profil supprimé, le garde s'arrête seul : pas de second recours à sudo.
+echec_d_activation_sans_arret_force() {
+    echec_au_demarrage 9
+    ne_contient "$(appels)" "systemctl stop" "le garde doit s'arrêter seul"
+}
+
 test_echec_d_activation() {
     faux_echec activation
-    echec_au_demarrage 9
+    echec_d_activation_sans_arret_force
 }
 
 test_activation_sans_mode_ap() {
     faux_echec activation_sans_ap
-    echec_au_demarrage 9
+    echec_d_activation_sans_arret_force
 }
 
 test_echec_nftables_jamais_de_point_d_acces() {
@@ -457,6 +461,8 @@ test_table_alteree() {
 
 test_garde_fige() {
     AGE_MAX=1
+    # Un garde figé impose d'attendre ce délai avant l'arrêt forcé du service.
+    DELAI_ARRET=2
     en_service
     local pid
     read -r pid <"$FAUX/unit/$UNITE.pid"

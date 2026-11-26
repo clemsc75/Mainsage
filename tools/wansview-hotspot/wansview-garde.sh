@@ -188,6 +188,9 @@ cmd_surveiller() {
                 else
                     motif="état du point d'accès incertain"
                 fi
+            elif profil_absent; then
+                # Activation abandonnée. Liste illisible : rien n'est conclu.
+                motif="profil temporaire supprimé"
             elif ((maintenant - debut_attente >= WH_DELAI_ACTIVATION)); then
                 motif="point d'accès non activé dans le délai"
             fi
