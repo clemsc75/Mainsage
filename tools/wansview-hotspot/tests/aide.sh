@@ -59,19 +59,29 @@ bac_verifier() {
 
 # Exécute une commande dans un environnement vierge limité au bac à sable.
 # DBUS_SYSTEM_BUS_ADDRESS pointe dans le vide : même un vrai nmcli resterait muet.
+bac_variables() {
+    BAC_VARIABLES=(PATH="$BAC/bin" HOME="$BAC/home" XDG_RUNTIME_DIR="$BAC/xdg"
+        DBUS_SYSTEM_BUS_ADDRESS="unix:path=$BAC/pas-de-bus"
+        WH_FAUX="$FAUX" WH_BAC="$BAC"
+        WH_MODE_TEST=1
+        WH_TEST_ETC="$BAC/etc" WH_TEST_SYS="$BAC/sys"
+        WH_TEST_RUN="$BAC/run/wansview-hotspot"
+        WH_TEST_INTERVALLE=0.1
+        WH_TEST_DELAI_GARDE="${DELAI_GARDE:-5}"
+        WH_TEST_DELAI_ARRET="${DELAI_ARRET:-5}"
+        WH_TEST_DELAI_ACTIVATION="${DELAI_ACTIVATION:-60}"
+        WH_TEST_AGE_MAX="${AGE_MAX:-6}")
+}
+
 bac_env() {
-    env -i PATH="$BAC/bin" HOME="$BAC/home" XDG_RUNTIME_DIR="$BAC/xdg" \
-        DBUS_SYSTEM_BUS_ADDRESS="unix:path=$BAC/pas-de-bus" \
-        WH_FAUX="$FAUX" WH_BAC="$BAC" \
-        WH_MODE_TEST=1 \
-        WH_TEST_ETC="$BAC/etc" WH_TEST_SYS="$BAC/sys" \
-        WH_TEST_RUN="$BAC/run/wansview-hotspot" \
-        WH_TEST_INTERVALLE=0.1 \
-        WH_TEST_DELAI_GARDE="${DELAI_GARDE:-5}" \
-        WH_TEST_DELAI_ARRET="${DELAI_ARRET:-5}" \
-        WH_TEST_DELAI_ACTIVATION="${DELAI_ACTIVATION:-60}" \
-        WH_TEST_AGE_MAX="${AGE_MAX:-6}" \
-        "$@"
+    bac_variables
+    env -i "${BAC_VARIABLES[@]}" "$@"
+}
+
+# À lancer en arrière-plan : le processus de $! est alors la commande elle-même.
+bac_exec() {
+    bac_variables
+    exec env -i "${BAC_VARIABLES[@]}" "$@"
 }
 
 bac_detruire() {
