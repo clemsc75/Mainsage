@@ -22,6 +22,20 @@ test_valide_sous_pipefail() {
     egal "$IFACE_ETH"$'\n'"$IFACE_WIFI" "$SORTIE"
 }
 
+test_ethernet_a_connectivite_limitee_acceptee() {
+    local etat
+    for etat in "connected (site only)" "connected (local only)"; do
+        echo "$etat" >"$FAUX/dev/$IFACE_ETH/state"
+        reussit 'wh_choisir_ethernet ""'
+        egal "$IFACE_ETH" "$SORTIE" "$etat"
+    done
+}
+
+test_ethernet_non_geree_par_networkmanager_refusee() {
+    echo "connected (externally)" >"$FAUX/dev/$IFACE_ETH/state"
+    refuse 'wh_choisir_ethernet ""'
+}
+
 test_dependance_absente() {
     rm "$BAC/bin/dnsmasq"
     refuse wh_verifier_dependances

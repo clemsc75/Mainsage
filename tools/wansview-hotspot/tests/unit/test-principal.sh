@@ -554,6 +554,14 @@ test_status_inactif() {
     aucune_modification
 }
 
+test_status_sans_cable() {
+    echo unavailable >"$FAUX/dev/$IFACE_ETH/state"
+    echo "1.1.1.1 via 172.20.36.254 dev $IFACE_WIFI src 172.20.36.44" >"$FAUX/ip/route_get"
+    principal status
+    egal 0 "$CODE" "$SORTIE"
+    contient "$SORTIE" "Ethernet        : non connectée (route Internet par $IFACE_WIFI)"
+}
+
 test_status_actif_avec_clients() {
     en_service
     echo "10.42.0.23 lladdr aa:bb:cc:dd:ee:ff REACHABLE" >"$FAUX/ip/voisins"

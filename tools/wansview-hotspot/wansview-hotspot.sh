@@ -227,15 +227,15 @@ cmd_start() {
 # ------------------------------------------------------------------ status
 
 afficher_ethernet() { # <interface ou vide>
-    local eth=$1 info
-    [[ -n $eth ]] || eth=$(wh_iface_route_internet) || eth=""
-    if [[ -z $eth ]]; then
-        echo "Ethernet        : aucune route Internet"
+    local eth=$1 route info
+    route=$(wh_iface_route_internet) || route=aucune
+    [[ -n $eth ]] || eth=$route
+    info=$(wh_peripherique "$eth") || info=""
+    if [[ ${info%%:*} != ethernet ]]; then
+        echo "Ethernet        : non connectée (route Internet par $(wh_assainir "$route"))"
         return
     fi
-    info=$(wh_peripherique "$eth")
-    echo "Ethernet        : $eth (${info%%:*}, ${info#*:})," \
-        "route Internet par $(wh_iface_route_internet || echo aucune)"
+    echo "Ethernet        : $eth (${info#*:}), route Internet par $(wh_assainir "$route")"
 }
 
 afficher_clients() { # <wifi>

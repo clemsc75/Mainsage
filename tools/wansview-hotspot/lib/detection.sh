@@ -57,6 +57,20 @@ wh_peripherique() {
     return 1
 }
 
+# Connexion gérée par NetworkManager, même si sa connectivité est jugée limitée
+# (portail captif, par exemple). « connected (externally) » est exclu.
+wh_etat_connecte() {
+    [[ $1 == connected || $1 == "connected (local only)" || $1 == "connected (site only)" ]]
+}
+
+wh_ethernet_active() { # <liste de wh_peripheriques>
+    local nom type etat
+    while IFS=: read -r nom type etat; do
+        [[ $type == ethernet ]] && wh_etat_connecte "$etat" && return 0
+    done <<<"$1"
+    return 1
+}
+
 wh_iface_route_internet() {
     local sortie mots i
     sortie=$(ip -4 route get 1.1.1.1 2>/dev/null) || return 1
@@ -79,7 +93,7 @@ wh_choisir_ethernet() {
     fi
     liste=$(wh_peripheriques) || return "$WH_E_PREREQUIS"
     # Pas de « | grep -q » : sous pipefail, il ferait échouer la commande amont.
-    if [[ -z $demande && $liste$'\n' != *:ethernet:connected$'\n'* ]]; then
+    if [[ -z $demande ]] && ! wh_ethernet_active "$liste"; then
         wh_erreur "Aucune connexion Ethernet active. Branchez le câble réseau."
         return "$WH_E_PREREQUIS"
     fi
@@ -101,7 +115,7 @@ wh_choisir_ethernet() {
             "(VPN actif ou câble absent ?)."
         return "$WH_E_PREREQUIS"
     fi
-    if [[ ${info#*:} != connected ]]; then
+    if ! wh_etat_connecte "${info#*:}"; then
         wh_erreur "L'interface $choisie n'est pas connectée par NetworkManager."
         return "$WH_E_PREREQUIS"
     fi

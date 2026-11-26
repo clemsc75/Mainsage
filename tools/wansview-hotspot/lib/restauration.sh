@@ -18,7 +18,7 @@ wh_controler_apres_restauration() {
     local eth=${WH_ETAT[eth]} info uuid
     info=$(wh_peripherique "$eth")
     uuid=$(nmcli -g GENERAL.CON-UUID device show "$eth" 2>/dev/null)
-    if [[ ${info#*:} == connected && $uuid == "${WH_ETAT[uuid_eth]}" &&
+    if wh_etat_connecte "${info#*:}" && [[ $uuid == "${WH_ETAT[uuid_eth]}" &&
         $(wh_iface_route_internet) == "$eth" ]]; then
         wh_info "Ethernet $eth : connectée, route Internet inchangée."
     else
