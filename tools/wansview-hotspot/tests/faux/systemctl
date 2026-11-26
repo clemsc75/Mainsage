@@ -14,7 +14,11 @@ case $action in
     stop)
         en_echec arret_service && exit 1
         pid=$(lire "$F/unit/$unite.pid")
-        [[ -n $pid ]] && kill -TERM "$pid" 2>/dev/null
+        # Comme systemd : SIGTERM puis SIGCONT pour réveiller un processus figé.
+        if [[ -n $pid ]]; then
+            kill -TERM "$pid" 2>/dev/null
+            kill -CONT "$pid" 2>/dev/null
+        fi
         for ((i = 0; i < 200; i++)); do
             [[ -e $F/unit/$unite.actif ]] || exit 0
             sleep 0.05

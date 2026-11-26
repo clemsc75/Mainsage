@@ -92,6 +92,7 @@ case "${1:-} ${2:-}" in
             [[ -d $F/conn/${4:?} ]] || exit 10
             exit 0
         fi
+        en_echec liste_profils && exit 8
         for c in "$F"/conn/*; do
             [[ -d $c ]] || continue
             case $champs in
