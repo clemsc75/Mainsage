@@ -90,7 +90,11 @@ tools/wansview-hotspot/tests/verification-reelle.sh apres
 python3 tools/wansview-hotspot/outils/decouverte-onvif.py --source 10.42.0.1
 ```
 
-4. Flux vidéo, **en TCP** : renseignez `CAMERA_RTSP_URL` dans `.env` (modèle : `.env.example`, flux `/live/ch0`, port selon le réglage de la caméra), chargez-la dans votre shell, puis lancez `ffplay -rtsp_transport tcp "$CAMERA_RTSP_URL"`. Les identifiants ne vont jamais dans le dépôt.
+4. Flux vidéo : renseignez `CAMERA_RTSP_URL` dans `.env` (modèle : `.env.example`, flux `/live/ch0`, port selon le réglage de la caméra) et chargez-la dans votre shell. Les identifiants ne vont jamais dans le dépôt. Lecture à faible latence avec GStreamer, en TCP :
+
+```bash
+gst-launch-1.0 rtspsrc location="$CAMERA_RTSP_URL" protocols=tcp latency=0 ! rtph264depay ! avdec_h264 max-threads=1 ! videoconvert ! autovideosink sync=false
+```
 
 La caméra perd le réseau à l'arrêt. Réutilisez ensuite le même SSID et le même mot de passe pour qu'elle se reconnecte.
 
@@ -187,7 +191,7 @@ Un redémarrage efface aussi tout : profil en mémoire, service temporaire, règ
 - Après une altération des règles, une fenêtre d'environ 2 s existe avant la réaction. Seule la table du projet est surveillée.
 - Internet n'est pas filtré. Une machine locale à adresse publique, hors des sous-réseaux connus de l'Ethernet, reste joignable.
 - Le DNS local permet aux clients de résoudre des noms internes, sans accès aux machines privées.
-- RTSP garanti en TCP ; en RTP sur UDP, le flux peut être bloqué.
+- RTSP garanti en TCP. En RTP sur UDP, le flux a fonctionné avec `ffplay` lors des essais, sans garantie pour un autre client.
 - ONVIF : les notifications poussées par la caméra vers le PC et ses annonces `Hello` sont bloquées.
 - Un conteneur Docker en réseau « bridge » ne peut pas joindre la caméra. Pour MediaMTX en conteneur, utilisez `network_mode: host` ou prévoyez une règle dédiée.
 - Si le script principal est tué (`SIGKILL`), le garde coupe le point d'accès, mais le Wi-Fi n'est entièrement restauré qu'avec `stop`.
@@ -206,7 +210,10 @@ Ubuntu 26.04, nftables 1.1.6, caméra Wansview Q5, les 26 et 27 novembre 2026.
 | Reconnexion du téléphone | sans nouvelle demande sur le PC |
 | Caméra depuis le PC | HTTP (80) et RTSP (554) ouverts, vidéo 1080p en TCP |
 | Ping vers la caméra pendant la vidéo | 8 à 13 ms en moyenne, aucune perte |
-| Latence de la vidéo avec `ffplay` | environ 0,7 à 1 s, en 1080p comme en SD (`/live/ch1`) |
+| Latence, `ffplay` en TCP | environ 0,7 à 1 s, en 1080p comme en SD (`/live/ch1`) |
+| Latence, GStreamer en TCP (commande ci-dessus) | environ 0,2 à 0,3 s en 1080p (une capture) |
+| Latence, `ffplay` en UDP avec `-vf setpts=0` | environ 0,3 s en 1080p (une capture) |
+| Cadence annoncée par le flux 1080p | 15 images par seconde |
 
 Un téléphone qui garde son propre VPN actif (Tailscale par exemple) atteint toujours le réseau de ce VPN : le trafic passe alors par Internet. Coupez-le avant de contrôler l'isolation.
 
