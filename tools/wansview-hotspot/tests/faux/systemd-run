@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Faux systemd-run : lance le service en arrière-plan, dans sa propre session,
+# puis exécute ExecStopPost quand le processus se termine, même après SIGKILL.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser systemd-run "$@"
+
+unite=""
+apres_arret=""
+while [[ ${1:-} == -* ]]; do
+    case $1 in
+        --unit=*) unite=${1#--unit=} ;;
+        --property=ExecStopPost=*) apres_arret=${1#--property=ExecStopPost=} ;;
+        --property=* | --collect | --quiet | --description=*) ;;
+        --) shift; break ;;
+        *) non_simule "systemd-run $1" ;;
+    esac
+    shift
+done
+[[ -n $unite && $# -gt 0 ]] || non_simule "systemd-run incomplet"
+en_echec systemd_run && { echo "Failed to start transient service unit" >&2; exit 1; }
+[[ -e $F/unit/$unite.actif ]] && { echo "Unit $unite already exists" >&2; exit 1; }
+: >"$F/unit/$unite.actif"
+
+# Le descripteur 9 (verrou du script principal) ne doit pas être hérité.
+# shellcheck disable=SC2016  # développé par le bash enfant
+setsid bash -c '
+    unite=$1 apres=$2 dossier=$3
+    shift 3
+    "$@" >>"$dossier/$unite.log" 2>&1 &
+    pid=$!
+    echo "$pid" >"$dossier/$unite.pid"
+    wait "$pid"
+    if [[ -n $apres ]]; then
+        read -ra commande <<<"$apres"
+        "${commande[@]}" >>"$dossier/$unite.log" 2>&1
+    fi
+    rm -f "$dossier/$unite.actif" "$dossier/$unite.pid"
+' _ "$unite" "$apres_arret" "$F/unit" "$@" </dev/null >/dev/null 2>&1 9>&- &
+
+for ((i = 0; i < 100; i++)); do
+    [[ -s $F/unit/$unite.pid || ! -e $F/unit/$unite.actif ]] && break
+    sleep 0.02
+done
+exit 0
