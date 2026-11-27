@@ -4,7 +4,7 @@ Transforme temporairement le Wi-Fi d'un portable Ubuntu en point d'accès 2,4 GH
 
 > **Avant d'utiliser cet outil :** sur un réseau d'établissement scolaire ou d'entreprise, un point d'accès personnel peut être interdit. Demandez l'autorisation.
 
-> **État de validation :** le code est testé avec des commandes simulées. L'isolation n'est **pas prouvée** tant que le test en espace de noms réseau et la vérification sur la vraie machine n'ont pas réussi.
+> **État de validation (27 novembre 2026) :** tests simulés, test d'isolation en réseau jetable (54 contrôles) et essais sur la machine réelle réussis. Sur une autre machine ou après une mise à jour du système, refaites la [première mise en service](#première-mise-en-service).
 
 ## Prérequis
 
@@ -193,12 +193,27 @@ Un redémarrage efface aussi tout : profil en mémoire, service temporaire, règ
 - Si le script principal est tué (`SIGKILL`), le garde coupe le point d'accès, mais le Wi-Fi n'est entièrement restauré qu'avec `stop`.
 - Quiconque peut modifier les fichiers du projet peut faire exécuter du code en root au prochain `start`.
 
-### Non vérifié en conditions réelles
+### Constaté en conditions réelles
 
-- L'effet réel des règles nftables (étape 2 ci-dessus). Seule leur syntaxe a été acceptée par l'analyseur de `nft`.
-- Le fait qu'Ubuntu garde le profil `save no` purement en mémoire. Sinon, `start` s'arrête avec le code 7 sans activer le point d'accès.
-- Le durcissement systemd du garde (`CapabilityBoundingSet`, `ProtectSystem`…).
-- La reconnexion d'un client sans nouvelle demande de mot de passe (`psk-flags 2`). Si NetworkManager le redemande, il faudra conserver le secret dans le profil en mémoire.
+Ubuntu 26.04, nftables 1.1.6, caméra Wansview Q5, les 26 et 27 novembre 2026.
+
+| Contrôle | Résultat |
+|---|---|
+| Démarrage, garde sous systemd, profil gardé en mémoire | réussi, rien d'écrit dans `/etc` |
+| Arrêt et restauration (`verification-reelle.sh apres`) | aucun échec, règles du système et Ethernet inchangés |
+| Depuis un téléphone : Internet et DNS | fonctionnels |
+| Depuis un téléphone : réseau local, SSH (22) et RPC (111) du PC | injoignables |
+| Reconnexion du téléphone | sans nouvelle demande sur le PC |
+| Caméra depuis le PC | HTTP (80) et RTSP (554) ouverts, vidéo 1080p en TCP |
+| Ping vers la caméra pendant la vidéo | 8 à 13 ms en moyenne, aucune perte |
+| Latence de la vidéo avec `ffplay` | environ 0,7 à 1 s, en 1080p comme en SD (`/live/ch1`) |
+
+Un téléphone qui garde son propre VPN actif (Tailscale par exemple) atteint toujours le réseau de ce VPN : le trafic passe alors par Internet. Coupez-le avant de contrôler l'isolation.
+
+### Reste à vérifier
+
+- **ONVIF** : la découverte reste sans réponse. Le port 8899 a été vu ouvert une fois, puis fermé.
+- En réel, les arrêts de secours (script tué, câble débranché, activation en échec) : ils ne sont testés qu'avec des commandes simulées.
 
 ## Développement
 
