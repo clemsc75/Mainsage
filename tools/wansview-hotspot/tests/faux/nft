@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Faux nft : conserve le texte de la table du projet dans $WH_FAUX/nft/projet.
+# Il ne valide pas la syntaxe : seul le test en espace de noms réseau le fait.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser nft "$@"
+
+sans_elements=0
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -s) shift ;;
+        -t) sans_elements=1; shift ;;
+        *) break ;;
+    esac
+done
+projet="$F/nft/projet"
+
+case "$*" in
+    "-f -")
+        contenu=$(cat)
+        printf '%s\n' "$contenu" >"$F/nft/dernier_envoi"
+        en_echec nft && { echo "Error: syntax error" >&2; exit 1; }
+        grep -qw flush <<<"$contenu" && { : >"$F/nft/FLUSH"; exit 1; }
+        sed -n '/^table inet wansview_hotspot {/,$p' <<<"$contenu" >"$projet"
+        ;;
+    "list ruleset")
+        lire "$F/nft/autres"
+        [[ -f $projet ]] && cat "$projet"
+        exit 0
+        ;;
+    "list tables")
+        en_echec nft_liste && exit 1
+        lire "$F/nft/autres"
+        [[ -f $projet ]] && echo "table inet wansview_hotspot"
+        exit 0
+        ;;
+    "list table inet wansview_hotspot")
+        en_echec nft_liste && exit 1
+        [[ -f $projet ]] || { echo "Error: No such file or directory" >&2; exit 1; }
+        # Comme nftables 1.1.6 : « size N » suivi du nombre d'éléments présents.
+        compteur=$(lire "$F/nft/compteur")
+        if [[ $sans_elements -eq 1 ]]; then
+            grep -v 'elements = ' "$projet"
+        else
+            cat "$projet"
+        fi | sed "s/^\([[:space:]]*size [0-9]*\)\$/\1${compteur:+\t# count $compteur}/"
+        ;;
+    "list set inet wansview_hotspot interdits")
+        en_echec nft_liste && exit 1
+        [[ -f $projet ]] || exit 1
+        sed -n '/set interdits {/,/^[[:space:]]*}[[:space:]]*$/p' "$projet"
+        ;;
+    "delete table inet wansview_hotspot")
+        en_echec nft_suppression && exit 1
+        [[ -f $projet ]] || exit 1
+        rm "$projet"
+        ;;
+    *) non_simule "nft $*" ;;
+esac

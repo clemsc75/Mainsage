@@ -1,0 +1,188 @@
+#!/usr/bin/env bash
+# Faux nmcli : état simulé dans $WH_FAUX.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser nmcli "$@"
+original="$*"
+
+champs=""
+valeurs=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -t) shift ;;
+        -f) champs=$2; shift 2 ;;
+        -g) valeurs=$2; shift 2 ;;
+        --wait | -w) shift 2 ;;
+        *) break ;;
+    esac
+done
+
+radio() { lire "$F/nm/radio"; }
+
+deconnecter() { # <iface>
+    local d="$F/dev/$1"
+    echo disconnected >"$d/state"
+    : >"$d/uuid"
+    echo managed >"$d/iwtype"
+    : >"$d/addr"
+    rm -f "$d/channel"
+}
+
+iface_active() { # <uuid>
+    local d
+    for d in "$F"/dev/*; do
+        [[ $(lire "$d/uuid") == "$1" ]] && { basename "$d"; return 0; }
+    done
+    return 1
+}
+
+case "${1:-} ${2:-}" in
+    "general permissions") cat "$F/nm/permissions" ;;
+    "general ")
+        [[ $champs == RUNNING ]] || non_simule "$original"
+        lire "$F/nm/running"
+        ;;
+    "radio wifi")
+        case ${3:-} in
+            "") radio ;;
+            on)
+                en_echec radio && exit 1
+                echo enabled >"$F/nm/radio"
+                ;;
+            off)
+                echo disabled >"$F/nm/radio"
+                for d in "$F"/dev/*; do
+                    [[ $(lire "$d/type") == wifi ]] && deconnecter "$(basename "$d")"
+                done
+                ;;
+            *) non_simule "$original" ;;
+        esac
+        ;;
+    "device " | "device status")
+        for d in "$F"/dev/*; do
+            etat=$(lire "$d/state")
+            [[ $(lire "$d/type") == wifi && $(radio) == disabled ]] && etat=unavailable
+            printf '%s:%s:%s\n' "$(basename "$d")" "$(lire "$d/type")" "$etat"
+        done
+        ;;
+    "device show")
+        d="$F/dev/${3:?}"
+        [[ -d $d ]] || exit 10
+        IFS=, read -ra liste <<<"$valeurs"
+        for champ in "${liste[@]}"; do
+            case $champ in
+                GENERAL.CON-UUID) lire "$d/uuid" ;;
+                GENERAL.AUTOCONNECT) lire "$d/autoconnect" ;;
+                *) non_simule "$original" ;;
+            esac
+        done
+        ;;
+    "device disconnect")
+        d="$F/dev/${3:?}"
+        echo no >"$d/autoconnect"
+        [[ $(lire "$d/state") == connected ]] || exit 6
+        deconnecter "$3"
+        ;;
+    "device set")
+        [[ ${4:-} == autoconnect ]] || non_simule "$original"
+        echo "${5:?}" >"$F/dev/${3:?}/autoconnect"
+        ;;
+    "connection show")
+        if [[ ${3:-} == uuid ]]; then
+            [[ -d $F/conn/${4:?} ]] || exit 10
+            exit 0
+        fi
+        en_echec liste_profils && exit 8
+        for c in "$F"/conn/*; do
+            [[ -d $c ]] || continue
+            case $champs in
+                UUID,NAME) printf '%s:%s\n' "$(basename "$c")" "$(lire "$c/name")" ;;
+                UUID,FILENAME) printf '%s:%s\n' "$(basename "$c")" "$(lire "$c/filename")" ;;
+                *) non_simule "$original" ;;
+            esac
+        done
+        ;;
+    "connection add")
+        shift 2
+        sauvegarde=yes uuid="" nom="" iface="" mode=infrastructure canal=""
+        proprietes=""
+        while [[ $# -ge 2 ]]; do
+            proprietes+="$1=$2"$'\n'
+            case $1 in
+                save) sauvegarde=$2 ;;
+                connection.uuid) uuid=$2 ;;
+                con-name) nom=$2 ;;
+                ifname) iface=$2 ;;
+                802-11-wireless.mode) mode=$2 ;;
+                802-11-wireless.channel) canal=$2 ;;
+            esac
+            shift 2
+        done
+        [[ $# -eq 0 && -n $uuid && -n $nom && -n $iface ]] || exit 2
+        en_echec ajout && exit 1
+        c="$F/conn/$uuid"
+        mkdir -p "$c"
+        echo "$nom" >"$c/name"
+        echo "$mode" >"$c/mode"
+        echo "$iface" >"$c/iface"
+        echo "$canal" >"$c/channel"
+        printf '%s' "$proprietes" >"$c/proprietes"
+        fichier="/run/NetworkManager/system-connections/$nom.nmconnection"
+        en_echec fichier_netplan &&
+            fichier="/run/NetworkManager/system-connections/netplan-NM-$uuid.nmconnection"
+        # Un profil persistant écrit dans /etc : simulé pour détecter la régression.
+        if [[ $sauvegarde != no ]] || en_echec ecriture_etc; then
+            : >"$WH_BAC/etc/NetworkManager/system-connections/$nom.nmconnection"
+        fi
+        echo "$fichier" >"$c/filename"
+        echo "Connection '$nom' ($uuid) successfully added."
+        ;;
+    "connection up")
+        [[ ${3:-} == uuid ]] || non_simule "$original"
+        uuid=${4:?}
+        c="$F/conn/$uuid"
+        [[ -d $c ]] || exit 10
+        [[ $(radio) == enabled ]] || exit 4
+        mode=$(lire "$c/mode")
+        if [[ $mode == ap ]]; then
+            [[ ${5:-} == passwd-file && ${6:-} == /dev/stdin ]] || exit 2
+            if [[ $(sha256sum) == "$(lire "$F/psk_sha")" ]]; then
+                : >"$F/psk_conforme"
+            else
+                exit 4
+            fi
+            en_echec activation && exit 4
+            en_echec activation_ecrit_etc &&
+                : >"$WH_BAC/etc/netplan/90-NM-$uuid.yaml"
+            iface=$(lire "$c/iface")
+            d="$F/dev/$iface"
+            echo connected >"$d/state"
+            echo "$uuid" >"$d/uuid"
+            cp "$c/channel" "$d/channel"
+            echo 10.42.0.1/24 >"$d/addr"
+            en_echec activation_sans_ap || echo AP >"$d/iwtype"
+        else
+            en_echec reconnexion && exit 4
+            iface=${6:?}
+            d="$F/dev/$iface"
+            echo connected >"$d/state"
+            echo "$uuid" >"$d/uuid"
+            echo managed >"$d/iwtype"
+            echo yes >"$d/autoconnect"
+        fi
+        ;;
+    "connection down")
+        [[ ${3:-} == uuid ]] || non_simule "$original"
+        en_echec down && exit 1
+        iface=$(iface_active "${4:?}") || exit 10
+        deconnecter "$iface"
+        ;;
+    "connection delete")
+        [[ ${3:-} == uuid ]] || non_simule "$original"
+        en_echec delete && exit 1
+        [[ -d $F/conn/${4:?} ]] || exit 10
+        if iface=$(iface_active "$4"); then deconnecter "$iface"; fi
+        rm -rf "${F:?}/conn/$4"
+        ;;
+    *) non_simule "$original" ;;
+esac

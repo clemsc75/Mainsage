@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Faux ip : lecture seule uniquement. Toute modification est un appel non simulé.
+# shellcheck source-path=SCRIPTDIR source=commun-faux.sh
+source "$(dirname "$(readlink -f "$0")")/commun-faux.sh"
+journaliser ip "$@"
+
+adresses() { # [iface]
+    local d nom adresse i=1
+    for d in "$F"/dev/*; do
+        nom=$(basename "$d")
+        i=$((i + 1))
+        [[ -z ${1:-} || $nom == "$1" ]] || continue
+        while read -r adresse; do
+            [[ -n $adresse ]] || continue
+            printf '%s: %s    inet %s scope global %s\\       valid_lft forever\n' \
+                "$i" "$nom" "$adresse" "$nom"
+        done <"$d/addr"
+    done
+}
+
+case "$*" in
+    "-4 route get "*) cat "$F/ip/route_get" ;;
+    "-4 route show" | "-4 route show table all") cat "$F/ip/routes" ;;
+    "-4 route show dev "*)
+        grep -E " dev ${*: -1}( |$)" "$F/ip/routes" | sed "s/ dev ${*: -1}//"
+        ;;
+    "-4 -o addr show") adresses ;;
+    "-4 -o addr show dev "*) adresses "${*: -1}" ;;
+    "-4 neigh show dev "*) lire "$F/ip/voisins" ;;
+    *) non_simule "ip $*" ;;
+esac
+exit 0
